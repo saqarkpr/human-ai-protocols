@@ -1,0 +1,8 @@
+numpy
+pandas
+scikit-learn>=1.4
+scipy
+matplotlib
+cvxpy>=1.4
+pgmpy>=1.0
+pytest
