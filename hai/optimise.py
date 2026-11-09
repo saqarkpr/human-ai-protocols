@@ -29,7 +29,7 @@ is the kind of quantity a hospital could actually act on.
 import cvxpy as cp
 import numpy as np
 
-from .protocols import ACTIONS, HUMAN_ACTIONS, patient_cost
+from .protocols import ACTIONS, HUMAN_ACTIONS, case_cost
 
 
 def risk_cells(ai_risk, cuts=None, n_cells=10):
@@ -54,7 +54,7 @@ def cell_statistics(worlds, cell, n_cells):
     for w in worlds:
         for a_i, a in enumerate(names):
             flag, j, s = ACTIONS[a](w)
-            pc = patient_cost(flag, w.y)
+            pc = case_cost(flag, w.y, w.costs)
             for k in range(n_cells):
                 m = cell == k
                 cost[k, a_i] += pc[m].mean()

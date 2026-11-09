@@ -1,22 +1,26 @@
-"""Run every experiment and write results/ and figures.
+"""Run every experiment for one or both domains and write results/<domain>/.
 
-    python scripts/run_all.py            # full run (about 2 to 4 minutes on CPU)
+    python scripts/run_all.py --domain icu
+    python scripts/run_all.py --domain cyber
+    python scripts/run_all.py --domain all          # both (about 15 minutes on CPU)
 
-Stages
-  1. Train the AI (real ICU data, no neurological exam) and the clinician cue model.
-  2. Evaluate fixed interaction protocols on held-out Set B (30 simulation seeds).
-  3. Optimise a routing policy with a linear program on the optimisation split,
-     then evaluate it on Set B. Sweep the senior-review budget.
-  4. Sensitivity: where does complementarity exist, as a function of the
-     clinician's inconsistency and weight on AI advice?
-  5. Ablation: give the AI the neurological exam too (no information asymmetry).
-  6. Stability under a model update: swap the AI from gradient-boosted trees to
-     logistic regression and check whether the protocol ranking survives.
-  7. Causal: naive vs back-door estimate of the effect of senior review from
-     confounded observational logs, against the simulated ground truth.
+Stages (per domain)
+  1. Agents. Train the AI (without the human's private information) and the
+     human cue model on the training split.
+  2. Fixed protocols on the held-out evaluation split (30 simulation seeds).
+  3. Optimal routing by linear program (CVXPY) on the optimisation split,
+     evaluated on the held-out split, plus a sweep over the senior budget.
+  4. Symbolic protocol synthesis with the thesis method (grammar + DQN), against
+     a random-search control with the same number of episodes, 5 seeds each.
+  5. Sensitivity map of complementarity (clinician inconsistency x reliance).
+  6. Ablation. The AI also receives the human's private information.
+  7. Stability under model updates (logistic regression, uncalibrated GBT).
+  8. Causal analysis of confounded interaction logs (pgmpy back-door).
 """
+import argparse
 import json
 import sys
+import time
 from dataclasses import replace
 from pathlib import Path
 
@@ -24,26 +28,25 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from scipy.stats import kendalltau
+from scipy.stats import kendalltau, wilcoxon
 from sklearn.metrics import roc_auc_score
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from hai import data as D  # noqa: E402
+from hai import causal, symbolic  # noqa: E402
 from hai.agents import AIAgent, CueModel, JUNIOR, SENIOR, logit  # noqa: E402
-from hai.protocols import (ACTIONS, HUMAN_ACTIONS, T_LOGIT, apply_policy,  # noqa: E402
-                           confidence_deferral, make_world, patient_cost, summarise)
+from hai.domains import DOMAINS  # noqa: E402
 from hai.optimise import calibration_gap_per_cell, cell_statistics, risk_cells, solve  # noqa: E402
-from hai import causal  # noqa: E402
+from hai.protocols import (ACTIONS, HUMAN_ACTIONS, apply_policy, case_cost,  # noqa: E402
+                           confidence_deferral, make_world, summarise)
 
-RES = ROOT / "results"
-RES.mkdir(exist_ok=True)
 R_OPT, R_EVAL, N_BOOT = 20, 30, 2000
 N_CELLS = 10
-SENIOR_BUDGET, JUNIOR_BUDGET, MIN_OVERSIGHT = 0.10, 0.50, 0.50
+LIMITS = {"senior": 0.10, "junior": 0.50, "oversight": 0.50}
 CALIB_GAP_MAX = 0.05
 TOP_RISK_NO_AUTO = 2
+SYM_SEEDS, SYM_EPISODES, SYM_WORLDS = 5, 800, 10
 
 
 def ece(p, y, bins=10):
@@ -59,273 +62,327 @@ def boot_ci(x, n=N_BOOT, seed=0):
     return [float(np.percentile(m, 2.5)), float(np.percentile(m, 97.5))]
 
 
-def setup(ai_kind="gbt", include_neuro=False):
-    A, B = D.load("a"), D.load("b")
-    A_tr, A_opt = D.split_set_a(A)
-    ai = AIAgent(ai_kind).fit(D.ai_features(A_tr, include_neuro), D.label(A_tr))
-    cues = CueModel().fit(D.clinician_cues(A_tr), D.label(A_tr))
+def setup(D, ai_kind="gbt_cal", private=False):
+    s = D.splits()
+    ai = AIAgent(ai_kind).fit(D.ai_features(s["train"], private), D.label(s["train"]))
+    cues = CueModel().fit(D.cues(s["train"]), D.label(s["train"]))
     parts = {}
-    for name, df in [("opt", A_opt), ("eval", B)]:
-        parts[name] = {
-            "df": df,
-            "y": D.label(df),
-            "ai_risk": ai.risk(D.ai_features(df, include_neuro)),
-            "cue_logit": cues.cue_logit(D.clinician_cues(df)),
-        }
+    for name in ("opt", "eval"):
+        df = s[name]
+        parts[name] = {"df": df, "y": D.label(df), "ai_risk": ai.risk(D.ai_features(df, private)),
+                       "cue_logit": cues.cue_logit(D.cues(df))}
     return parts
 
 
-def worlds(part, n, offset, junior=JUNIOR, senior=SENIOR):
-    return [make_world(part["y"], part["ai_risk"], part["cue_logit"], offset + r, junior, senior)
+def worlds(D, part, n, offset, junior=JUNIOR, senior=SENIOR):
+    return [make_world(part["y"], part["ai_risk"], part["cue_logit"], offset + r, D.costs, junior, senior)
             for r in range(n)]
 
 
-def pick_band(opt_worlds, target=0.30):
-    """Uncertainty band (logit units) so that about `target` of cases are deferred."""
-    d = np.abs(opt_worlds[0].ai_logit - T_LOGIT)
-    return float(np.quantile(d, target))
+def pick_band(ws, target=0.30):
+    return float(np.quantile(np.abs(ws[0].ai_logit - ws[0].t), target))
 
 
 def fixed_protocols(band):
-    p = {a: f for a, f in ACTIONS.items()}
+    p = dict(ACTIONS)
     p["confidence_deferral"] = lambda w: confidence_deferral(w, band)
     return p
 
 
 def evaluate_protocols(ws, protos):
-    """Mean metrics over seeds + per-patient cost averaged over seeds."""
-    out, per_patient = {}, {}
+    out, per_case = {}, {}
     for name, f in protos.items():
         rows, pc = [], np.zeros(len(ws[0].y))
         for w in ws:
             flag, j, s = f(w)
-            rows.append(summarise(flag, j, s, w.y))
-            pc += patient_cost(flag, w.y)
+            rows.append(summarise(flag, j, s, w.y, w.costs))
+            pc += case_cost(flag, w.y, w.costs)
         out[name] = {k: float(np.mean([r[k] for r in rows])) for k in rows[0]}
         out[name]["cost_seed_sd"] = float(np.std([r["cost_per_100"] for r in rows]))
-        per_patient[name] = pc / len(ws)
-    return out, per_patient
+        per_case[name] = pc / len(ws)
+    return out, per_case
 
 
-def optimise_and_eval(parts, opt_ws, eval_ws, senior_budget):
+def cells_and_masks(parts):
     opt, ev = parts["opt"], parts["eval"]
     cell_opt, cuts = risk_cells(opt["ai_risk"], n_cells=N_CELLS)
     cell_ev, _ = risk_cells(ev["ai_risk"], cuts=cuts)
     K = len(cuts) + 1
-    names, cost, sen, jun = cell_statistics(opt_ws, cell_opt, K)
     gap = calibration_gap_per_cell(opt["ai_risk"], opt["y"], cell_opt, K)
-    no_auto = sorted(set(range(K - TOP_RISK_NO_AUTO, K)) |
-                     set(np.where(gap > CALIB_GAP_MAX)[0].tolist()))
-    n_frac = np.bincount(cell_opt, minlength=K) / len(cell_opt)
-    sol = solve(names, cost, sen, jun, n_frac, senior_budget, JUNIOR_BUDGET,
-                MIN_OVERSIGHT, no_auto)
-    info = {"no_auto_cells": no_auto, "calibration_gap_per_cell": gap.tolist(),
-            "n_cells": K, "cell_share_opt_split": n_frac.tolist(),
-            "cell_risk_upper_bounds": cuts.tolist()}
+    no_auto = sorted(set(range(K - TOP_RISK_NO_AUTO, K)) | set(np.where(gap > CALIB_GAP_MAX)[0].tolist()))
+    top = list(range(K - TOP_RISK_NO_AUTO, K))
+    unreliable = sorted(set(np.where(gap > CALIB_GAP_MAX)[0].tolist()) - set(top))
+    return dict(cell_opt=cell_opt, cell_ev=cell_ev, cuts=cuts, K=K, gap=gap, no_auto=no_auto,
+                top=top, unreliable=unreliable)
+
+
+def optimise_and_eval(parts, opt_ws, eval_ws, senior_budget, cm):
+    names, cost, sen, jun = cell_statistics(opt_ws, cm["cell_opt"], cm["K"])
+    n_frac = np.bincount(cm["cell_opt"], minlength=cm["K"]) / len(cm["cell_opt"])
+    sol = solve(names, cost, sen, jun, n_frac, senior_budget, LIMITS["junior"], LIMITS["oversight"],
+                cm["no_auto"])
     if sol["assignment"] is None:
-        return sol, None, None, info
-    rows, pc = [], np.zeros(len(ev["y"]))
+        return sol, None, None
+    rows, pc = [], np.zeros(len(parts["eval"]["y"]))
     for r, w in enumerate(eval_ws):
-        flag, j, s, chosen = apply_policy(w, cell_ev, sol["assignment"], seed=r)
-        human = np.isin(chosen, list(HUMAN_ACTIONS))
-        rows.append(summarise(flag, j, s, w.y, human))
-        pc += patient_cost(flag, w.y)
-    ev_metrics = {k: float(np.mean([r[k] for r in rows])) for k in rows[0]}
-    return sol, ev_metrics, pc / len(eval_ws), info
+        flag, j, s, chosen = apply_policy(w, cm["cell_ev"], sol["assignment"], seed=r)
+        rows.append(summarise(flag, j, s, w.y, w.costs, np.isin(chosen, list(HUMAN_ACTIONS))))
+        pc += case_cost(flag, w.y, w.costs)
+    return sol, {k: float(np.mean([r[k] for r in rows])) for k in rows[0]}, pc / len(eval_ws)
 
 
-def complementarity(metrics, team, solo_human):
-    best = min(metrics["ai_auto"]["cost_per_100"], metrics[solo_human]["cost_per_100"])
-    return metrics[team]["cost_per_100"] - best
+def subset(part, idx):
+    return {"df": part["df"].iloc[idx].reset_index(drop=True), "y": part["y"][idx],
+            "ai_risk": part["ai_risk"][idx], "cue_logit": part["cue_logit"][idx]}
 
 
-def main():
-    results = {"config": {"R_opt": R_OPT, "R_eval": R_EVAL, "n_cells": N_CELLS,
-                          "senior_budget": SENIOR_BUDGET, "junior_budget": JUNIOR_BUDGET,
-                          "min_oversight": MIN_OVERSIGHT, "calib_gap_max": CALIB_GAP_MAX,
-                          "top_risk_deciles_no_auto": TOP_RISK_NO_AUTO,
-                          "junior": JUNIOR.__dict__, "senior": SENIOR.__dict__}}
-
-    # ---- 1. agents -------------------------------------------------------
-    parts = setup("gbt_cal")
+def evidence_experiment(D, parts, opt_ws):
+    """Where should the evidence used to design a protocol come from?
+    The held-out split is halved. Half E1 plays the role of evidence collected
+    under deployment conditions, half E2 is the test. The LP is optimised once
+    on the in-distribution optimisation split and once on E1, and both are
+    evaluated on E2, next to fixed protocols."""
     ev = parts["eval"]
-    opt_ws, eval_ws = worlds(parts["opt"], R_OPT, 0), worlds(ev, R_EVAL, 1000)
-    results["agents_on_set_b"] = {
-        "ai_auroc": float(roc_auc_score(ev["y"], ev["ai_risk"])),
-        "ai_ece": ece(ev["ai_risk"], ev["y"]),
-        "clinician_cue_model_auroc": float(roc_auc_score(ev["y"], ev["cue_logit"])),
-        "junior_own_auroc_mean": float(np.mean([roc_auc_score(w.y, w.junior_own) for w in eval_ws])),
-        "senior_own_auroc_mean": float(np.mean([roc_auc_score(w.y, w.senior_own) for w in eval_ws])),
-        "corr_ai_vs_cue_logit": float(np.corrcoef(logit(ev["ai_risk"]),
-                                                  ev["cue_logit"])[0, 1]),
-        "prevalence": float(ev["y"].mean()),
-    }
-    print("agents:", json.dumps(results["agents_on_set_b"], indent=1))
+    idx = np.random.default_rng(123).permutation(len(ev["y"]))
+    e1, e2 = subset(ev, idx[: len(idx) // 2]), subset(ev, idx[len(idx) // 2:])
+    ws1, ws2 = worlds(D, e1, R_OPT, 7000), worlds(D, e2, R_EVAL, 8000)
+    out = {}
+    pcs = {}
+    for name, p, w_opt in [("in_distribution_evidence", {"opt": parts["opt"], "eval": e2}, opt_ws),
+                           ("deployment_evidence", {"opt": e1, "eval": e2}, ws1)]:
+        cmx = cells_and_masks(p)
+        sol, m, pc = optimise_and_eval(p, w_opt, ws2, LIMITS["senior"], cmx)
+        out[name] = {"status": sol["status"], "eval": m, "no_auto_cells": cmx["no_auto"],
+                     "assignment": sol["assignment"]}
+        pcs[name] = pc
+    fm, fpc = evaluate_protocols(ws2, {k: ACTIONS[k] for k in ["ai_auto", "escalate_on_disagreement",
+                                                               "senior_blind_first"]})
+    out["fixed_on_test_half"] = {k: v["cost_per_100"] for k, v in fm.items()}
+    if all(v is not None for v in pcs.values()):
+        d = 100 * (pcs["deployment_evidence"] - pcs["in_distribution_evidence"])
+        out["deployment_minus_in_distribution"] = float(d.mean())
+        out["deployment_minus_in_distribution_ci95"] = boot_ci(d)
+        for k in ["ai_auto", "escalate_on_disagreement"]:
+            for name in pcs:
+                dd = 100 * (pcs[name] - fpc[k])
+                out[f"{name}_minus_{k}"] = float(dd.mean())
+                out[f"{name}_minus_{k}_ci95"] = boot_ci(dd)
+    out["ai_missed_positive_rate"] = {
+        "opt": float(np.mean(parts["opt"]["ai_risk"][parts["opt"]["y"] == 1] < D.costs.threshold)),
+        "eval": float(np.mean(ev["ai_risk"][ev["y"] == 1] < D.costs.threshold))}
+    return out
 
-    # ---- 2. fixed protocols ---------------------------------------------
+
+def complementarity(m, team, solo):
+    return m[team]["cost_per_100"] - min(m["ai_auto"]["cost_per_100"], m[solo]["cost_per_100"])
+
+
+def comp_block(m):
+    return {"junior_advice_first": complementarity(m, "junior_advice_first", "junior_alone"),
+            "junior_blind_first": complementarity(m, "junior_blind_first", "junior_alone"),
+            "senior_blind_first": complementarity(m, "senior_blind_first", "senior_alone")}
+
+
+def make_symbolic_bank(D, part, ws, cells, cell_name):
+    cell = cells[cell_name]
+    return symbolic.make_bank(ws, part["ai_risk"], np.isin(cell, cells["top"]),
+                              np.isin(cell, cells["unreliable"]), case_cost)
+
+
+def run_domain(name):
+    D = DOMAINS[name]
+    out_dir = ROOT / "results" / name
+    out_dir.mkdir(parents=True, exist_ok=True)
+    t0 = time.time()
+    res = {"domain": name, "case": D.case, "positive": D.positive, "human_private": D.human_private,
+           "costs": {"fn": D.costs.fn, "fp": D.costs.fp, "threshold": D.costs.threshold},
+           "config": {"R_opt": R_OPT, "R_eval": R_EVAL, "limits": LIMITS, "calib_gap_max": CALIB_GAP_MAX,
+                      "top_risk_deciles_no_auto": TOP_RISK_NO_AUTO, "junior": JUNIOR.__dict__,
+                      "senior": SENIOR.__dict__, "symbolic": {"seeds": SYM_SEEDS, "episodes": SYM_EPISODES,
+                                                              "worlds": SYM_WORLDS}}}
+    s = D.splits()
+    res["sizes"] = {k: int(len(v)) for k, v in s.items()}
+    res["prevalence"] = {k: float(D.label(v).mean()) for k, v in s.items()}
+
+    # 1. agents
+    parts = setup(D)
+    ev = parts["eval"]
+    opt_ws, eval_ws = worlds(D, parts["opt"], R_OPT, 0), worlds(D, ev, R_EVAL, 1000)
+    res["agents_eval"] = {
+        "ai_auroc": float(roc_auc_score(ev["y"], ev["ai_risk"])), "ai_ece": ece(ev["ai_risk"], ev["y"]),
+        "human_cue_model_auroc": float(roc_auc_score(ev["y"], ev["cue_logit"])),
+        "junior_own_auroc": float(np.mean([roc_auc_score(w.y, w.junior_own) for w in eval_ws])),
+        "senior_own_auroc": float(np.mean([roc_auc_score(w.y, w.senior_own) for w in eval_ws])),
+        "corr_ai_vs_human_cues": float(np.corrcoef(logit(ev["ai_risk"]), ev["cue_logit"])[0, 1]),
+    }
+    print(name, "agents", res["agents_eval"])
+
+    # 2. fixed protocols
     band = pick_band(opt_ws)
-    protos = fixed_protocols(band)
-    metrics, per_patient = evaluate_protocols(eval_ws, protos)
-    best_solo_junior = per_patient["ai_auto"] if metrics["ai_auto"]["cost_per_100"] <= \
-        metrics["junior_alone"]["cost_per_100"] else per_patient["junior_alone"]
-    for name in metrics:
-        d = 100 * (per_patient[name] - best_solo_junior)
-        metrics[name]["diff_vs_best_of_ai_or_junior"] = float(d.mean())
-        metrics[name]["diff_ci95"] = boot_ci(d)
-    results["confidence_deferral_band_logit"] = band
-    results["fixed_protocols_set_b"] = metrics
-    results["complementarity"] = {
-        "junior_advice_first": complementarity(metrics, "junior_advice_first", "junior_alone"),
-        "junior_blind_first": complementarity(metrics, "junior_blind_first", "junior_alone"),
-        "senior_blind_first": complementarity(metrics, "senior_blind_first", "senior_alone"),
-    }
-    print("protocols:")
-    for k, v in sorted(metrics.items(), key=lambda kv: kv[1]["cost_per_100"]):
-        print(f"  {k:26s} cost/100={v['cost_per_100']:.2f}  sens={v['sensitivity']:.3f} "
-              f"spec={v['specificity']:.3f}  jr%={v['junior_reviews_pct']:.0f} sr%={v['senior_reviews_pct']:.1f}"
-              f"  diff={v['diff_vs_best_of_ai_or_junior']:+.2f} {np.round(v['diff_ci95'], 2)}")
+    metrics, per_case = evaluate_protocols(eval_ws, fixed_protocols(band))
+    ref = "ai_auto" if metrics["ai_auto"]["cost_per_100"] <= metrics["junior_alone"]["cost_per_100"] \
+        else "junior_alone"
+    for k in metrics:
+        d = 100 * (per_case[k] - per_case[ref])
+        metrics[k]["diff_vs_best_individual"] = float(d.mean())
+        metrics[k]["diff_ci95"] = boot_ci(d)
+    res["best_individual"] = ref
+    res["confidence_deferral_band_logit"] = band
+    res["fixed_protocols"] = metrics
+    res["complementarity"] = comp_block(metrics)
 
-    # ---- 3. optimisation -------------------------------------------------
-    sol, lp_metrics, lp_pc, lp_info = optimise_and_eval(parts, opt_ws, eval_ws, SENIOR_BUDGET)
-    d = 100 * (lp_pc - per_patient["escalate_on_disagreement"])
-    lp_metrics["diff_vs_escalate_on_disagreement"] = float(d.mean())
-    lp_metrics["diff_vs_escalate_ci95"] = boot_ci(d)
-    d3 = 100 * (lp_pc - per_patient["confidence_deferral"])
-    lp_metrics["diff_vs_confidence_deferral"] = float(d3.mean())
-    lp_metrics["diff_vs_confidence_deferral_ci95"] = boot_ci(d3)
-    d2 = 100 * (lp_pc - best_solo_junior)
-    lp_metrics["diff_vs_best_of_ai_or_junior"] = float(d2.mean())
-    lp_metrics["diff_ci95"] = boot_ci(d2)
-    results["optimised_policy"] = {"lp": {k: v for k, v in sol.items()},
-                                   "set_b": lp_metrics, **lp_info}
-    print("LP status", sol["status"], "expected(opt split)", round(sol["expected_cost_per_100"], 2),
-          "set B", round(lp_metrics["cost_per_100"], 2), "shadow", round(sol["senior_shadow_price"], 3))
-    print("LP set B metrics", json.dumps(lp_metrics, indent=1))
-    # Is the gap between LP-expected and realised cost optimism, or is Set B just
-    # a harder cohort? Compare a fixed protocol's cost on both cohorts.
-    m_opt, _ = evaluate_protocols(opt_ws, {"escalate_on_disagreement": ACTIONS["escalate_on_disagreement"],
-                                           "ai_auto": ACTIONS["ai_auto"]})
-    results["optimised_policy"]["cohort_reference"] = {
-        "escalate_on_disagreement_opt_split": m_opt["escalate_on_disagreement"]["cost_per_100"],
-        "escalate_on_disagreement_set_b": metrics["escalate_on_disagreement"]["cost_per_100"],
-        "ai_auto_opt_split": m_opt["ai_auto"]["cost_per_100"],
-        "ai_auto_set_b": metrics["ai_auto"]["cost_per_100"],
-    }
-
+    # 3. LP
+    cm = cells_and_masks(parts)
+    sol, lp_m, lp_pc = optimise_and_eval(parts, opt_ws, eval_ws, LIMITS["senior"], cm)
+    for other in ["escalate_on_disagreement", "confidence_deferral", ref]:
+        d = 100 * (lp_pc - per_case[other])
+        lp_m[f"diff_vs_{other}"] = float(d.mean())
+        lp_m[f"diff_vs_{other}_ci95"] = boot_ci(d)
+    m_opt, _ = evaluate_protocols(opt_ws, {k: ACTIONS[k] for k in ["escalate_on_disagreement", "ai_auto"]})
+    res["lp"] = {"solution": sol, "eval": lp_m, "n_cells": cm["K"], "no_auto_cells": cm["no_auto"],
+                 "calibration_gap_per_cell": cm["gap"].tolist(), "cell_upper_bounds": cm["cuts"].tolist(),
+                 "cohort_reference": {"escalate_opt": m_opt["escalate_on_disagreement"]["cost_per_100"],
+                                      "escalate_eval": metrics["escalate_on_disagreement"]["cost_per_100"],
+                                      "ai_auto_opt": m_opt["ai_auto"]["cost_per_100"],
+                                      "ai_auto_eval": metrics["ai_auto"]["cost_per_100"]}}
     sweep = []
     for b in [0.0, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30]:
-        s_b, m_b, _, _ = optimise_and_eval(parts, opt_ws, eval_ws, b)
-        sweep.append({"senior_budget": b, "expected_opt_split": s_b["expected_cost_per_100"],
-                      "set_b_cost": m_b["cost_per_100"] if m_b else None,
-                      "set_b_senior_pct": m_b["senior_reviews_pct"] if m_b else None,
-                      "shadow_price": s_b["senior_shadow_price"], "status": s_b["status"]})
-    results["senior_budget_sweep"] = sweep
+        s_b, m_b, _ = optimise_and_eval(parts, opt_ws, eval_ws, b, cm)
+        sweep.append({"senior_budget": b, "status": s_b["status"],
+                      "expected_opt": s_b["expected_cost_per_100"],
+                      "eval_cost": m_b["cost_per_100"] if m_b else None,
+                      "eval_senior_pct": m_b["senior_reviews_pct"] if m_b else None})
+    res["senior_budget_sweep"] = sweep
+    print(name, "LP eval", round(lp_m["cost_per_100"], 2), "vs", ref, round(metrics[ref]["cost_per_100"], 2))
 
-    # ---- 4. sensitivity --------------------------------------------------
-    sigmas = [0.25, 0.5, 1.0, 1.5, 2.0]
-    ws_grid = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
-    grid = np.zeros((len(ws_grid), len(sigmas)))
-    for i, wv in enumerate(ws_grid):
+    res["evidence_experiment"] = evidence_experiment(D, parts, opt_ws)
+    print(name, "evidence", {k: v for k, v in res["evidence_experiment"].items() if "assignment" not in str(k)})
+
+    # 4. symbolic synthesis (thesis method)
+    bank_opt = make_symbolic_bank(D, parts["opt"], opt_ws[:SYM_WORLDS], cm, "cell_opt")
+    bank_ev = make_symbolic_bank(D, ev, eval_ws, cm, "cell_ev")
+    sym = {"dqn": [], "random": []}
+    for method in ("dqn", "random"):
+        for seed in range(SYM_SEEDS):
+            r = symbolic.search(bank_opt, LIMITS, episodes=SYM_EPISODES, seed=seed, use_dqn=(method == "dqn"))
+            prog, th = symbolic.simplify(r["program"], r["theta"], bank_opt, LIMITS)
+            loss_opt, m_opt_s = symbolic.score(prog, th, bank_opt, LIMITS)
+            _, m_ev = symbolic.score(prog, th, bank_ev, LIMITS)
+            _, cost_ev, _, _, _ = symbolic.evaluate(prog, th, bank_ev)
+            pc = cost_ev.mean(0)
+            sym[method].append({"seed": seed, "loss_opt": float(loss_opt), "opt": m_opt_s, "eval": m_ev,
+                                "text": symbolic.to_text(prog, th), "fitness_evaluations": r["fitness_evaluations"],
+                                "best_curve": r["best_curve"],
+                                "diff_vs_lp": float(100 * (pc - lp_pc).mean()),
+                                "diff_vs_lp_ci95": boot_ci(100 * (pc - lp_pc)),
+                                "diff_vs_best_individual": float(100 * (pc - per_case[ref]).mean()),
+                                "diff_vs_best_individual_ci95": boot_ci(100 * (pc - per_case[ref]))})
+            print(name, method, seed, round(loss_opt, 4), round(m_ev["cost_per_100"], 2), m_ev["feasible"])
+    dl = np.array([x["loss_opt"] for x in sym["dqn"]])
+    rl = np.array([x["loss_opt"] for x in sym["random"]])
+    best = min(sym["dqn"] + sym["random"], key=lambda x: x["loss_opt"])
+    sym["summary"] = {
+        "dqn_loss_opt_mean": float(dl.mean()), "random_loss_opt_mean": float(rl.mean()),
+        "dqn_better_seeds": int(np.sum(dl < rl - 1e-12)), "ties": int(np.sum(np.abs(dl - rl) <= 1e-12)),
+        "wilcoxon_p": float(wilcoxon(dl, rl).pvalue) if np.any(np.abs(dl - rl) > 1e-12) else 1.0,
+        "selected_text": best["text"], "selected_eval": best["eval"], "selected_seed_method":
+            f"{'dqn' if best in sym['dqn'] else 'random'} seed {best['seed']}",
+        "selected_diff_vs_lp": best["diff_vs_lp"], "selected_diff_vs_lp_ci95": best["diff_vs_lp_ci95"],
+        "selected_diff_vs_best_individual": best["diff_vs_best_individual"],
+        "selected_diff_vs_best_individual_ci95": best["diff_vs_best_individual_ci95"],
+        "eval_cost_dqn_mean": float(np.mean([x["eval"]["cost_per_100"] for x in sym["dqn"]])),
+        "eval_cost_random_mean": float(np.mean([x["eval"]["cost_per_100"] for x in sym["random"]])),
+        "feasible_eval_dqn": int(sum(x["eval"]["feasible"] for x in sym["dqn"])),
+        "feasible_eval_random": int(sum(x["eval"]["feasible"] for x in sym["random"])),
+    }
+    res["symbolic"] = sym
+    print(name, "symbolic", {k: v for k, v in sym["summary"].items() if k != "selected_text"})
+    print(sym["summary"]["selected_text"])
+
+    # 5. sensitivity
+    sigmas, wgrid = [0.25, 0.5, 1.0, 1.5, 2.0], [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+    grid = np.zeros((len(wgrid), len(sigmas)))
+    for i, wv in enumerate(wgrid):
         for j, sg in enumerate(sigmas):
             jr = replace(JUNIOR, sigma=sg, w_first=wv)
-            gws = [make_world(ev["y"], ev["ai_risk"], ev["cue_logit"], 5000 + r, jr, SENIOR)
-                   for r in range(10)]
-            m, _ = evaluate_protocols(gws, {"ai_auto": ACTIONS["ai_auto"],
-                                            "junior_alone": ACTIONS["junior_alone"],
+            gws = worlds(D, ev, 10, 5000, jr, SENIOR)
+            m, _ = evaluate_protocols(gws, {"ai_auto": ACTIONS["ai_auto"], "junior_alone": ACTIONS["junior_alone"],
                                             "team": ACTIONS["junior_advice_first"]})
-            grid[i, j] = m["team"]["cost_per_100"] - min(m["ai_auto"]["cost_per_100"],
-                                                         m["junior_alone"]["cost_per_100"])
-    results["sensitivity"] = {"sigmas": sigmas, "weights_on_advice": ws_grid,
-                              "team_minus_best_individual": grid.tolist()}
+            grid[i, j] = m["team"]["cost_per_100"] - min(m["ai_auto"]["cost_per_100"], m["junior_alone"]["cost_per_100"])
+    res["sensitivity"] = {"sigmas": sigmas, "weights_on_advice": wgrid, "team_minus_best_individual": grid.tolist()}
 
-    # ---- 5. ablation: no information asymmetry ---------------------------
-    parts_n = setup("gbt_cal", include_neuro=True)
-    ev_n = parts_n["eval"]
-    ws_n = worlds(ev_n, R_EVAL, 1000)
-    m_n, _ = evaluate_protocols(ws_n, fixed_protocols(band))
-    results["ablation_ai_sees_neuro_exam"] = {
-        "ai_auroc": float(roc_auc_score(ev_n["y"], ev_n["ai_risk"])),
-        "corr_ai_vs_cue_logit": float(np.corrcoef(logit(ev_n["ai_risk"]),
-                                                  ev_n["cue_logit"])[0, 1]),
-        "complementarity": {
-            "junior_advice_first": complementarity(m_n, "junior_advice_first", "junior_alone"),
-            "junior_blind_first": complementarity(m_n, "junior_blind_first", "junior_alone"),
-            "senior_blind_first": complementarity(m_n, "senior_blind_first", "senior_alone"),
-        },
-        "protocol_costs": {k: v["cost_per_100"] for k, v in m_n.items()},
-    }
+    # 6. ablation
+    parts_p = setup(D, private=True)
+    m_p, _ = evaluate_protocols(worlds(D, parts_p["eval"], R_EVAL, 1000), fixed_protocols(band))
+    res["ablation_ai_gets_private_info"] = {
+        "ai_auroc": float(roc_auc_score(parts_p["eval"]["y"], parts_p["eval"]["ai_risk"])),
+        "corr_ai_vs_human_cues": float(np.corrcoef(logit(parts_p["eval"]["ai_risk"]),
+                                                   parts_p["eval"]["cue_logit"])[0, 1]),
+        "complementarity": comp_block(m_p), "protocol_costs": {k: v["cost_per_100"] for k, v in m_p.items()}}
 
-    # ---- 6. stability under model updates ------------------------------
-    results["model_updates"] = {}
+    # 7. model updates
+    res["model_updates"] = {}
     names = sorted(metrics)
     for kind in ["logreg", "gbt"]:
-        parts_u = setup(kind)
-        ws_u = worlds(parts_u["eval"], R_EVAL, 1000)
-        m_u, _ = evaluate_protocols(ws_u, fixed_protocols(pick_band(worlds(parts_u["opt"], 1, 0))))
-        _, lp_u, _, _ = optimise_and_eval(parts_u, worlds(parts_u["opt"], R_OPT, 0), ws_u, SENIOR_BUDGET)
-        tau, p_tau = kendalltau([metrics[n]["cost_per_100"] for n in names],
-                                [m_u[n]["cost_per_100"] for n in names])
-        results["model_updates"][kind] = {
-            "ai_auroc": float(roc_auc_score(parts_u["eval"]["y"], parts_u["eval"]["ai_risk"])),
-            "ai_ece": ece(parts_u["eval"]["ai_risk"], parts_u["eval"]["y"]),
-            "protocol_costs": {k: v["cost_per_100"] for k, v in m_u.items()},
-            "optimised_cost": lp_u["cost_per_100"] if lp_u else None,
-            "complementarity": {
-                "junior_advice_first": complementarity(m_u, "junior_advice_first", "junior_alone"),
-                "junior_blind_first": complementarity(m_u, "junior_blind_first", "junior_alone"),
-                "senior_blind_first": complementarity(m_u, "senior_blind_first", "senior_alone"),
-            },
-            "kendall_tau_ranking_vs_main": float(tau), "kendall_p": float(p_tau),
-        }
+        pu = setup(D, kind)
+        wu = worlds(D, pu["eval"], R_EVAL, 1000)
+        mu, _ = evaluate_protocols(wu, fixed_protocols(pick_band(worlds(D, pu["opt"], 1, 0))))
+        tau, p_tau = kendalltau([metrics[n]["cost_per_100"] for n in names], [mu[n]["cost_per_100"] for n in names])
+        res["model_updates"][kind] = {
+            "ai_auroc": float(roc_auc_score(pu["eval"]["y"], pu["eval"]["ai_risk"])),
+            "ai_ece": ece(pu["eval"]["ai_risk"], pu["eval"]["y"]),
+            "protocol_costs": {k: v["cost_per_100"] for k, v in mu.items()},
+            "complementarity": comp_block(mu), "kendall_tau_vs_main": float(tau), "kendall_p": float(p_tau)}
 
-    # ---- 7. causal -------------------------------------------------------
-    sev, _ = D.severity_tercile(ev["df"], cuts=D.severity_tercile(parts["opt"]["df"])[1])
+    # 8. causal
+    sev, cuts = D.severity_bins(parts["opt"]["df"])
+    sev_ev, _ = D.severity_bins(ev["df"], cuts)
+    n_levels = len(cuts) + 1
     rows = []
     for r, w in enumerate(eval_ws):
-        log, truth = causal.simulate_log(w, sev, seed=r)
-        est = causal.estimate(log)
+        log, truth = causal.simulate_log(w, sev_ev, n_levels, seed=r)
+        est = causal.estimate(log, D.costs)
         rows.append({"true": truth, **est, "senior_share": float(log.Review.mean())})
-    results["causal"] = {"adjustment_set": rows[0]["adjustment_set"], "runs": len(rows),
-                         "senior_share_mean": float(np.mean([r["senior_share"] for r in rows])),
-                         "per_run": rows}
+    res["causal"] = {"adjustment_set": rows[0]["adjustment_set"], "runs": len(rows), "severity_levels": n_levels,
+                     "senior_share_mean": float(np.mean([r["senior_share"] for r in rows])), "per_run": rows}
     for q in ["cost", "missed_death"]:
         tr = np.array([r["true"][q] for r in rows])
         nv = np.array([r["naive"][q] for r in rows])
         bd = np.array([r["backdoor"][q] for r in rows])
-        results["causal"][q] = {
-            "true_mean": float(tr.mean()), "naive_mean": float(nv.mean()),
-            "backdoor_mean": float(bd.mean()),
-            "naive_abs_error_mean": float(np.abs(nv - tr).mean()),
-            "backdoor_abs_error_mean": float(np.abs(bd - tr).mean()),
-            "naive_wrong_sign_runs": int(np.sum(np.sign(nv) != np.sign(tr))),
-            "backdoor_wrong_sign_runs": int(np.sum(np.sign(bd) != np.sign(tr))),
-        }
-    print("causal:", {k: v for k, v in results["causal"].items() if k != "per_run"})
+        res["causal"][q] = {"true_mean": float(tr.mean()), "naive_mean": float(nv.mean()),
+                            "backdoor_mean": float(bd.mean()),
+                            "naive_abs_error_mean": float(np.abs(nv - tr).mean()),
+                            "backdoor_abs_error_mean": float(np.abs(bd - tr).mean()),
+                            "naive_wrong_sign_runs": int(np.sum(np.sign(nv) != np.sign(tr))),
+                            "backdoor_wrong_sign_runs": int(np.sum(np.sign(bd) != np.sign(tr)))}
+    print(name, "causal", res["causal"]["cost"])
 
-    (RES / "results.json").write_text(json.dumps(results, indent=2, default=float))
-    figures(results)
-    print("done")
+    res["runtime_s"] = time.time() - t0
+    (out_dir / "results.json").write_text(json.dumps(res, indent=2, default=float))
+    figures(res, out_dir)
+    return res
 
 
-def figures(res):
+def figures(res, out):
     plt.rcParams.update({"font.size": 9})
-    # protocol costs
-    m = res["fixed_protocols_set_b"]
+    title = {"icu": "ICU (PhysioNet 2012)", "cyber": "Cybersecurity (NSL-KDD)"}[res["domain"]]
+    m = res["fixed_protocols"]
     order = sorted(m, key=lambda k: m[k]["cost_per_100"])
-    fig, ax = plt.subplots(figsize=(6.5, 3.6))
     vals = [m[k]["cost_per_100"] for k in order]
-    err = [m[k]["cost_seed_sd"] for k in order]
-    ax.barh(order, vals, xerr=err, color="#4C72B0")
-    ax.axvline(res["optimised_policy"]["set_b"]["cost_per_100"], color="#C44E52", ls="--",
-               label="optimised (LP)")
+    fig, ax = plt.subplots(figsize=(6.5, 3.8))
+    ax.barh(order, vals, xerr=[m[k]["cost_seed_sd"] for k in order], color="#4C72B0")
+    ax.axvline(res["lp"]["eval"]["cost_per_100"], color="#C44E52", ls="--", label="optimised (LP)")
+    ax.axvline(res["symbolic"]["summary"]["selected_eval"]["cost_per_100"], color="#55A868", ls=":",
+               lw=2, label="symbolic protocol (thesis method)")
     ax.invert_yaxis()
-    ax.set_xlim(30, max(vals) + 3)
-    ax.set_xlabel("decision cost per 100 patients (Set B, mean ± sd over seeds)")
-    ax.legend(loc="upper right")
+    ax.set_xlim(min(vals) * 0.85, max(vals) * 1.05)
+    ax.set_xlabel(f"decision cost per 100 {res['case']}s (held-out, mean ± sd over seeds)")
+    ax.set_title(title)
+    ax.legend(loc="upper right", fontsize=7)
     fig.tight_layout()
-    fig.savefig(RES / "protocol_costs.png", dpi=160)
+    fig.savefig(out / "protocol_costs.png", dpi=160)
+    plt.close(fig)
 
-    # sensitivity heatmap
     s = res["sensitivity"]
     g = np.array(s["team_minus_best_individual"])
     fig, ax = plt.subplots(figsize=(5, 3.8))
@@ -333,46 +390,68 @@ def figures(res):
     im = ax.imshow(g, cmap="RdBu_r", vmin=-lim, vmax=lim, origin="lower", aspect="auto")
     ax.set_xticks(range(len(s["sigmas"])), s["sigmas"])
     ax.set_yticks(range(len(s["weights_on_advice"])), s["weights_on_advice"])
-    ax.set_xlabel("clinician inconsistency sigma (logit)")
+    ax.set_xlabel("human inconsistency sigma (logit)")
     ax.set_ylabel("weight on AI advice w")
     for i in range(g.shape[0]):
         for j in range(g.shape[1]):
             ax.text(j, i, f"{g[i, j]:+.1f}", ha="center", va="center", fontsize=7)
-    fig.colorbar(im, label="team cost − best individual\n(blue = complementarity)")
-    ax.set_title("Where does human-AI complementarity exist?")
+    fig.colorbar(im, label="team cost - best individual\n(blue = complementarity)")
+    ax.set_title(f"{title}: where complementarity exists")
     fig.tight_layout()
-    fig.savefig(RES / "complementarity_map.png", dpi=160)
+    fig.savefig(out / "complementarity_map.png", dpi=160)
+    plt.close(fig)
 
-    # budget sweep
-    sw = [r for r in res["senior_budget_sweep"] if r["set_b_cost"] is not None]
+    sw = [r for r in res["senior_budget_sweep"] if r["eval_cost"] is not None]
     fig, ax = plt.subplots(figsize=(5, 3.2))
-    ax.plot([100 * r["senior_budget"] for r in sw], [r["expected_opt_split"] for r in sw], "o--",
-            label="LP expected (optimisation split)")
-    ax.plot([100 * r["senior_budget"] for r in sw], [r["set_b_cost"] for r in sw], "s-",
-            label="realised on held-out Set B")
-    ax.set_xlabel("senior review budget (% of patients)")
-    ax.set_ylabel("decision cost per 100 patients")
-    ax.legend()
+    ax.plot([100 * r["senior_budget"] for r in sw], [r["expected_opt"] for r in sw], "o--", label="LP expected (optimisation split)")
+    ax.plot([100 * r["senior_budget"] for r in sw], [r["eval_cost"] for r in sw], "s-", label="realised (held-out)")
+    ax.set_xlabel("senior review budget (% of cases)")
+    ax.set_ylabel(f"cost per 100 {res['case']}s")
+    ax.set_title(title)
+    ax.legend(fontsize=7)
     fig.tight_layout()
-    fig.savefig(RES / "senior_budget_frontier.png", dpi=160)
+    fig.savefig(out / "senior_budget_frontier.png", dpi=160)
+    plt.close(fig)
 
-    # causal
-    c = res["causal"]
-    tr = [r["true"]["cost"] for r in c["per_run"]]
-    nv = [r["naive"]["cost"] for r in c["per_run"]]
-    bd = [r["backdoor"]["cost"] for r in c["per_run"]]
+    c = res["causal"]["per_run"]
+    tr, nv, bd = ([r["true"]["cost"] for r in c], [r["naive"]["cost"] for r in c],
+                  [r["backdoor"]["cost"] for r in c])
     fig, ax = plt.subplots(figsize=(5, 3.2))
     ax.scatter(tr, nv, label="naive comparison", alpha=.7)
     ax.scatter(tr, bd, label="back-door (pgmpy do-query)", alpha=.7)
     lo, hi = min(tr + nv + bd), max(tr + nv + bd)
     ax.plot([lo, hi], [lo, hi], "k:", lw=1, label="perfect estimate")
     ax.axhline(0, color="grey", lw=.5)
-    ax.set_xlabel("true effect of senior review\n(change in cost per 100 patients)")
+    ax.set_xlabel(f"true effect of senior review\n(change in cost per 100 {res['case']}s)")
     ax.set_ylabel("estimated effect from logs")
-    ax.legend(fontsize=7, loc="lower right")
+    ax.set_title(title)
+    ax.legend(fontsize=7, loc="best")
     fig.tight_layout()
-    fig.savefig(RES / "causal_estimates.png", dpi=160)
+    fig.savefig(out / "causal_estimates.png", dpi=160)
+    plt.close(fig)
+
+    fig, ax = plt.subplots(figsize=(5, 3.2))
+    for method, col in (("dqn", "#C44E52"), ("random", "#8172B2")):
+        curves = np.array([x["best_curve"] for x in res["symbolic"][method]])
+        curves = np.minimum(curves, 2.0)
+        mu = 100 * curves.mean(0)
+        ax.plot(mu, color=col, label=f"{'DQN (thesis method)' if method == 'dqn' else 'random grammar search'}")
+        ax.fill_between(range(curves.shape[1]), 100 * curves.min(0), 100 * curves.max(0), color=col, alpha=.15)
+    ax.axhline(res["lp"]["solution"]["expected_cost_per_100"], color="k", ls="--", lw=1, label="LP optimum (opt split)")
+    ax.set_ylim(res["lp"]["solution"]["expected_cost_per_100"] * 0.95, res["lp"]["solution"]["expected_cost_per_100"] * 1.35)
+    ax.set_xlabel("episode")
+    ax.set_ylabel("best loss found (x100)")
+    ax.set_title(f"{title}: symbolic protocol search")
+    ax.legend(fontsize=7)
+    fig.tight_layout()
+    fig.savefig(out / "symbolic_search.png", dpi=160)
+    plt.close(fig)
 
 
 if __name__ == "__main__":
-    main()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--domain", default="all", choices=["icu", "cyber", "all"])
+    a = ap.parse_args()
+    for d in (["icu", "cyber"] if a.domain == "all" else [a.domain]):
+        run_domain(d)
+    print("done")

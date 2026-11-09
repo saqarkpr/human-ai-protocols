@@ -5,4 +5,5 @@ scipy
 matplotlib
 cvxpy>=1.4
 pgmpy>=1.0
+torch>=2.0
 pytest
