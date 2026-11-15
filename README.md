@@ -226,6 +226,7 @@ In cybersecurity, senior review truly reduces cost, yet the naive reading of the
 * Each domain has one decision and one cost ratio. NSL-KDD is old and synthetic and serves as a controlled testbed, not as a statement about modern intrusion detection.
 * The ICU data is aggregated per stay (see `icu-mortality-trustworthy-eval`), so decisions are made once per stay, not over time.
 * The symbolic search uses five seeds per method, which is too few to detect a modest advantage of the DQN over random search.
+* In cybersecurity the isotonic-calibrated AI gives 59% of held-out connections a risk of exactly 0, which `logit()` clips at `EPS = 1e-6` (logit −13.8). Humans then cannot override those cases when they see the AI after committing to their own view. Varying the clip (1e-6, 1e-4, 1e-3, 1e-2) leaves every team protocol 6 to 10 points cheaper than the AI alone, but changes the order among the top protocols (at 1e-2, junior blind-first ranks first and escalation fourth). The ranking of the best cyber protocols should therefore not be over-read.
 
 ## Reproduce
 
