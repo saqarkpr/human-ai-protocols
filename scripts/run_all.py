@@ -47,6 +47,7 @@ LIMITS = {"senior": 0.10, "junior": 0.50, "oversight": 0.50}
 CALIB_GAP_MAX = 0.05
 TOP_RISK_NO_AUTO = 2
 SYM_SEEDS, SYM_EPISODES, SYM_WORLDS = 5, 800, 10
+SOLO = ["ai_auto", "junior_alone", "senior_alone"]
 
 
 def ece(p, y, bins=10):
@@ -220,12 +221,15 @@ def run_domain(name):
     # 2. fixed protocols
     band = pick_band(opt_ws)
     metrics, per_case = evaluate_protocols(eval_ws, fixed_protocols(band))
-    ref = "ai_auto" if metrics["ai_auto"]["cost_per_100"] <= metrics["junior_alone"]["cost_per_100"] \
-        else "junior_alone"
+    # best individual agent = cheapest of the three solo protocols (AI, junior, senior)
+    ref = min(SOLO, key=lambda k: metrics[k]["cost_per_100"])
     for k in metrics:
+        d = 100 * (per_case[k] - per_case["ai_auto"])
+        metrics[k]["diff_vs_ai_auto"] = float(d.mean())
+        metrics[k]["diff_vs_ai_auto_ci95"] = boot_ci(d)
         d = 100 * (per_case[k] - per_case[ref])
         metrics[k]["diff_vs_best_individual"] = float(d.mean())
-        metrics[k]["diff_ci95"] = boot_ci(d)
+        metrics[k]["diff_vs_best_individual_ci95"] = boot_ci(d)
     res["best_individual"] = ref
     res["confidence_deferral_band_logit"] = band
     res["fixed_protocols"] = metrics
@@ -234,7 +238,7 @@ def run_domain(name):
     # 3. LP
     cm = cells_and_masks(parts)
     sol, lp_m, lp_pc = optimise_and_eval(parts, opt_ws, eval_ws, LIMITS["senior"], cm)
-    for other in ["escalate_on_disagreement", "confidence_deferral", ref]:
+    for other in dict.fromkeys(["escalate_on_disagreement", "confidence_deferral", "ai_auto", ref]):
         d = 100 * (lp_pc - per_case[other])
         lp_m[f"diff_vs_{other}"] = float(d.mean())
         lp_m[f"diff_vs_{other}_ci95"] = boot_ci(d)
@@ -270,11 +274,13 @@ def run_domain(name):
             _, m_ev = symbolic.score(prog, th, bank_ev, LIMITS)
             _, cost_ev, _, _, _ = symbolic.evaluate(prog, th, bank_ev)
             pc = cost_ev.mean(0)
-            sym[method].append({"seed": seed, "loss_opt": float(loss_opt), "opt": m_opt_s, "eval": m_ev,
+            sym[method].append({"method": method, "seed": seed, "loss_opt": float(loss_opt), "opt": m_opt_s, "eval": m_ev,
                                 "text": symbolic.to_text(prog, th), "fitness_evaluations": r["fitness_evaluations"],
                                 "best_curve": r["best_curve"],
                                 "diff_vs_lp": float(100 * (pc - lp_pc).mean()),
                                 "diff_vs_lp_ci95": boot_ci(100 * (pc - lp_pc)),
+                                "diff_vs_ai_auto": float(100 * (pc - per_case["ai_auto"]).mean()),
+                                "diff_vs_ai_auto_ci95": boot_ci(100 * (pc - per_case["ai_auto"])),
                                 "diff_vs_best_individual": float(100 * (pc - per_case[ref]).mean()),
                                 "diff_vs_best_individual_ci95": boot_ci(100 * (pc - per_case[ref]))})
             print(name, method, seed, round(loss_opt, 4), round(m_ev["cost_per_100"], 2), m_ev["feasible"])
@@ -286,8 +292,10 @@ def run_domain(name):
         "dqn_better_seeds": int(np.sum(dl < rl - 1e-12)), "ties": int(np.sum(np.abs(dl - rl) <= 1e-12)),
         "wilcoxon_p": float(wilcoxon(dl, rl).pvalue) if np.any(np.abs(dl - rl) > 1e-12) else 1.0,
         "selected_text": best["text"], "selected_eval": best["eval"], "selected_seed_method":
-            f"{'dqn' if best in sym['dqn'] else 'random'} seed {best['seed']}",
+            f"{best['method']} seed {best['seed']}",
         "selected_diff_vs_lp": best["diff_vs_lp"], "selected_diff_vs_lp_ci95": best["diff_vs_lp_ci95"],
+        "selected_diff_vs_ai_auto": best["diff_vs_ai_auto"],
+        "selected_diff_vs_ai_auto_ci95": best["diff_vs_ai_auto_ci95"],
         "selected_diff_vs_best_individual": best["diff_vs_best_individual"],
         "selected_diff_vs_best_individual_ci95": best["diff_vs_best_individual_ci95"],
         "eval_cost_dqn_mean": float(np.mean([x["eval"]["cost_per_100"] for x in sym["dqn"]])),

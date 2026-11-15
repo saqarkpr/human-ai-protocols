@@ -53,7 +53,10 @@ class ICUDomain(Domain):
         return df[LABEL].astype(int).values
 
     def severity(self, df):
-        return df["SAPS-I"].astype(float).values
+        # The challenge data encodes a missing SAPS-I as -1. Treat it as missing
+        # (imputed with the median in severity_bins) instead of as the lowest severity.
+        s = df["SAPS-I"].astype(float).values
+        return np.where(s < 0, np.nan, s)
 
 
 ICU = ICUDomain(name="icu", costs=Costs(fn=5.0, fp=1.0), case="patient",

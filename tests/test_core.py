@@ -144,3 +144,16 @@ def test_audit_condition_samples_requested_fraction():
     assert p["rules"][0][0][0] == "audit"
     assigned, _, _, sen, _ = S.evaluate(p, np.array([0.2]), bank)
     assert abs(sen.mean() - 0.2) < 0.02
+
+
+# --- domains -----------------------------------------------------------------
+
+def test_icu_missing_saps_is_not_lowest_severity():
+    """SAPS-I = -1 means 'missing' in the challenge files and must not land in
+    the lowest severity bin of the causal analysis."""
+    import pandas as pd
+    from hai.domains import ICU
+    df = pd.DataFrame({"SAPS-I": [-1, 2, 4, 6, 8, 10, 12, 14, 16, 18, -1]})
+    assert np.isnan(ICU.severity(df)[[0, 10]]).all()
+    bins, _ = ICU.severity_bins(df)
+    assert bins[0] == bins[10] == 1 and bins[1] == 0   # median tercile, not the lowest

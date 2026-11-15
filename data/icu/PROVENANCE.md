@@ -55,11 +55,12 @@ cite:
 }
 ```
 
-## Excluded columns (checked empirically, not assumed)
+## Excluded columns
 
-`scripts/check_leakage.py` fits a single-feature classifier on each
-candidate column alone and reports its AUROC, rather than trusting the
-field description:
+The checks below were run in the sibling project icu-mortality-trustworthy-eval
+(its `scripts/check_leakage.py`, which is not part of this repository). They
+fit a single-feature classifier on each candidate column alone and report its
+AUROC, rather than trusting the field description:
 
 - **`Survival`** (days from admission to death; **-1** for survivors, by
   the challenge's own definition): AUROC from this one column alone =
@@ -74,11 +75,15 @@ field description:
   one sample doesn't rule out. This is a judgment call, stated as one.
 
 `recordid` (an identifier) is dropped as a feature for the obvious reason.
-`SAPS-I` and `SOFA` (clinical severity scores computed from the same early
-ICU data, not from the outcome) are **kept** as features and also reported
-separately as a fitting-free clinical baseline (`SAPS-I` alone) -- this
-mirrors what the original 2012 challenge asked entrants to beat, and is a
-legitimate prospective clinical score, not outcome leakage.
+
+**Difference from the sibling project.** There, `SAPS-I` and `SOFA` are kept
+as AI features. In this project they are **withheld from the AI** (together
+with every `GCS_*` column), because both scores contain a Glasgow Coma Scale
+component and the GCS is the private information of the simulated clinician
+(see `hai/domains/icu.py`). `SAPS-I` is used only as the observable triage
+severity of the status-quo routing policy in the causal analysis. A missing
+`SAPS-I` or `SOFA` is encoded as **-1** in the challenge files (about 4% of
+stays for `SAPS-I`); the code treats it as missing, not as a low score.
 
 ## Derived column
 

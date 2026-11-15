@@ -93,7 +93,7 @@ No claim is made about how real clinicians or analysts behave. The sensitivity a
 
 ### 1. Which protocol is best depends on the domain and on relative reliability
 
-Decision cost per 100 held-out cases, and the paired difference to the AI alone (the best individual agent in both domains).
+Decision cost per 100 held-out cases, and the paired difference to the AI alone. The AI is the best individual agent in the ICU. In cybersecurity the senior working alone is slightly cheaper than the AI (60.0 vs 61.7, difference not significant), so there the comparisons against the AI are slightly more favourable to the team protocols than comparisons against the best individual would be. `results.json` reports both (`diff_vs_ai_auto` and `diff_vs_best_individual`).
 
 | Protocol | ICU cost | vs AI [95% CI] | Cyber cost | vs AI [95% CI] |
 |---|---|---|---|---|
@@ -162,7 +162,7 @@ else:                                    ai_auto
 
 In the optimisation data 52% of connections have an AI risk of exactly zero. A deterministic threshold cannot split those tied cases, so without an audit condition no rule can meet the 50% oversight requirement. The LP meets it only by randomising which of them a human sees. Adding **random audit sampling** to the grammar lets the symbolic protocols state that randomisation openly. The selected rule matches the LP on the held-out set (−0.01 [−0.04, +0.01]), but under the distribution shift its human-in-the-loop share falls to 44%, below the required 50%. Constraint satisfaction measured in-distribution did not transfer.
 
-**DQN versus random search.** The DQN found a lower-loss protocol than random search on 4 of 5 seeds in each domain, but with five seeds this is not significant (Wilcoxon p = 0.44 in both). The protocol grammar is small, and random search already explores it well. The contribution of the thesis method here is the **representation**, readable protocols with fitted thresholds at LP-level cost. A clear advantage of the learned search would need a larger grammar, which is a natural next step.
+**DQN versus random search.** The DQN found a lower-loss protocol than random search on 4 of 5 seeds in each domain, but with five seeds this is not significant (Wilcoxon p = 0.44 in both). With five paired seeds the smallest two-sided p-value the Wilcoxon test can reach is 0.0625, so this comparison could not have been significant at the 5% level whatever the result. The protocol grammar is small, and random search already explores it well. The contribution of the thesis method here is the **representation**, readable protocols with fitted thresholds at LP-level cost. A clear advantage of the learned search would need a larger grammar, which is a natural next step.
 
 ![ICU symbolic search](results/icu/symbolic_search.png)
 
@@ -232,7 +232,7 @@ In cybersecurity, senior review truly reduces cost, yet the naive reading of the
 ```
 pip install -r requirements.txt
 python scripts/run_all.py --domain all     # about 10 minutes on CPU, writes results/icu and results/cyber
-python -m pytest -q tests                  # 14 sanity checks
+python -m pytest -q tests                  # 15 sanity checks
 ```
 
 ## Repository layout
