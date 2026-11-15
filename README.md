@@ -210,8 +210,8 @@ The causal graph is `Sev → Unc`, `Sev → Review ← Unc`, `Sev → Out`, `Unc
 | Effect of senior review on cost / 100 (30 runs) | ICU | Cyber |
 |---|---|---|
 | True effect | +3.3 | −3.6 |
-| Naive comparison of logs | +17.1 | +19.4 |
-| Back-door adjustment (pgmpy) | +3.2 | −5.5 |
+| Naive comparison of logs | +16.5 | +19.4 |
+| Back-door adjustment (pgmpy) | +2.7 | −5.5 |
 | Naive estimate with the wrong sign | 0 / 30 runs | **30 / 30 runs** |
 | Back-door estimate with the wrong sign | 7 / 30 runs | 9 / 30 runs |
 

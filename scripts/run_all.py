@@ -2,7 +2,7 @@
 
     python scripts/run_all.py --domain icu
     python scripts/run_all.py --domain cyber
-    python scripts/run_all.py --domain all          # both (about 15 minutes on CPU)
+    python scripts/run_all.py --domain all          # both (about 10 minutes on CPU)
 
 Stages (per domain)
   1. Agents. Train the AI (without the human's private information) and the

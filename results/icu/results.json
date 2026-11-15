@@ -64,8 +64,13 @@
       "junior_reviews_pct": 0.0,
       "senior_reviews_pct": 0.0,
       "cost_seed_sd": 7.105427357601002e-15,
+      "diff_vs_ai_auto": 0.0,
+      "diff_vs_ai_auto_ci95": [
+        0.0,
+        0.0
+      ],
       "diff_vs_best_individual": 0.0,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         0.0,
         0.0
       ]
@@ -77,8 +82,13 @@
       "junior_reviews_pct": 100.0,
       "senior_reviews_pct": 0.0,
       "cost_seed_sd": 1.2959019274449566,
+      "diff_vs_ai_auto": 11.855833333333333,
+      "diff_vs_ai_auto_ci95": [
+        8.846604166666665,
+        14.899229166666668
+      ],
       "diff_vs_best_individual": 11.855833333333333,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         8.846604166666665,
         14.899229166666668
       ]
@@ -90,8 +100,13 @@
       "junior_reviews_pct": 100.0,
       "senior_reviews_pct": 0.0,
       "cost_seed_sd": 0.7679066060111454,
+      "diff_vs_ai_auto": -1.5583333333333338,
+      "diff_vs_ai_auto_ci95": [
+        -3.371083333333334,
+        0.29335416666666647
+      ],
       "diff_vs_best_individual": -1.5583333333333338,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         -3.371083333333334,
         0.29335416666666647
       ]
@@ -103,8 +118,13 @@
       "junior_reviews_pct": 100.0,
       "senior_reviews_pct": 0.0,
       "cost_seed_sd": 1.0932812487593888,
+      "diff_vs_ai_auto": 4.508333333333333,
+      "diff_vs_ai_auto_ci95": [
+        1.992458333333333,
+        7.0225833333333325
+      ],
       "diff_vs_best_individual": 4.508333333333333,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         1.992458333333333,
         7.0225833333333325
       ]
@@ -116,8 +136,13 @@
       "junior_reviews_pct": 100.0,
       "senior_reviews_pct": 32.0675,
       "cost_seed_sd": 0.901352764213632,
+      "diff_vs_ai_auto": 0.09083333333333314,
+      "diff_vs_ai_auto_ci95": [
+        -2.140916666666667,
+        2.3535208333333317
+      ],
       "diff_vs_best_individual": 0.09083333333333314,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         -2.140916666666667,
         2.3535208333333317
       ]
@@ -129,8 +154,13 @@
       "junior_reviews_pct": 0.0,
       "senior_reviews_pct": 100.0,
       "cost_seed_sd": 0.930621432162402,
+      "diff_vs_ai_auto": 1.7724999999999997,
+      "diff_vs_ai_auto_ci95": [
+        -0.9821041666666667,
+        4.7298958333333285
+      ],
       "diff_vs_best_individual": 1.7724999999999997,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         -0.9821041666666667,
         4.7298958333333285
       ]
@@ -142,8 +172,13 @@
       "junior_reviews_pct": 0.0,
       "senior_reviews_pct": 100.0,
       "cost_seed_sd": 0.8677973393726331,
+      "diff_vs_ai_auto": 6.2283333333333335,
+      "diff_vs_ai_auto_ci95": [
+        3.0846666666666667,
+        9.456374999999992
+      ],
       "diff_vs_best_individual": 6.2283333333333335,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         3.0846666666666667,
         9.456374999999992
       ]
@@ -155,8 +190,13 @@
       "junior_reviews_pct": 29.72500000000001,
       "senior_reviews_pct": 0.0,
       "cost_seed_sd": 0.7951244661477008,
+      "diff_vs_ai_auto": -2.3975,
+      "diff_vs_ai_auto_ci95": [
+        -4.399166666666667,
+        -0.32077083333333367
+      ],
       "diff_vs_best_individual": -2.3975,
-      "diff_ci95": [
+      "diff_vs_best_individual_ci95": [
         -4.399166666666667,
         -0.32077083333333367
       ]
@@ -456,6 +496,7 @@
   "symbolic": {
     "dqn": [
       {
+        "method": "dqn",
         "seed": 0,
         "loss_opt": 0.368,
         "opt": {
@@ -1289,6 +1330,11 @@
           -0.6383958333333333,
           0.4158541666666665
         ],
+        "diff_vs_ai_auto": -2.3316666666666666,
+        "diff_vs_ai_auto_ci95": [
+          -4.183416666666667,
+          -0.4435833333333366
+        ],
         "diff_vs_best_individual": -2.3316666666666666,
         "diff_vs_best_individual_ci95": [
           -4.183416666666667,
@@ -1296,6 +1342,7 @@
         ]
       },
       {
+        "method": "dqn",
         "seed": 1,
         "loss_opt": 0.368,
         "opt": {
@@ -2129,6 +2176,11 @@
           -0.6383958333333333,
           0.4158541666666665
         ],
+        "diff_vs_ai_auto": -2.3316666666666666,
+        "diff_vs_ai_auto_ci95": [
+          -4.183416666666667,
+          -0.4435833333333366
+        ],
         "diff_vs_best_individual": -2.3316666666666666,
         "diff_vs_best_individual_ci95": [
           -4.183416666666667,
@@ -2136,6 +2188,7 @@
         ]
       },
       {
+        "method": "dqn",
         "seed": 2,
         "loss_opt": 0.36933333333333335,
         "opt": {
@@ -2969,6 +3022,11 @@
           -0.05918750000000002,
           0.731791666666666
         ],
+        "diff_vs_ai_auto": -1.8591666666666669,
+        "diff_vs_ai_auto_ci95": [
+          -3.7250416666666673,
+          0.01462499999999729
+        ],
         "diff_vs_best_individual": -1.8591666666666669,
         "diff_vs_best_individual_ci95": [
           -3.7250416666666673,
@@ -2976,6 +3034,7 @@
         ]
       },
       {
+        "method": "dqn",
         "seed": 3,
         "loss_opt": 0.36933333333333335,
         "opt": {
@@ -3809,6 +3868,11 @@
           -0.05918750000000002,
           0.731791666666666
         ],
+        "diff_vs_ai_auto": -1.8591666666666669,
+        "diff_vs_ai_auto_ci95": [
+          -3.7250416666666673,
+          0.01462499999999729
+        ],
         "diff_vs_best_individual": -1.8591666666666669,
         "diff_vs_best_individual_ci95": [
           -3.7250416666666673,
@@ -3816,6 +3880,7 @@
         ]
       },
       {
+        "method": "dqn",
         "seed": 4,
         "loss_opt": 0.3715,
         "opt": {
@@ -4649,6 +4714,11 @@
           -0.28918750000000004,
           0.6492083333333332
         ],
+        "diff_vs_ai_auto": -2.0425000000000004,
+        "diff_vs_ai_auto_ci95": [
+          -3.8628541666666663,
+          -0.2236458333333365
+        ],
         "diff_vs_best_individual": -2.0425000000000004,
         "diff_vs_best_individual_ci95": [
           -3.8628541666666663,
@@ -4658,6 +4728,7 @@
     ],
     "random": [
       {
+        "method": "random",
         "seed": 0,
         "loss_opt": 0.3715,
         "opt": {
@@ -5491,6 +5562,11 @@
           -0.28918750000000004,
           0.6492083333333332
         ],
+        "diff_vs_ai_auto": -2.0425000000000004,
+        "diff_vs_ai_auto_ci95": [
+          -3.8628541666666663,
+          -0.2236458333333365
+        ],
         "diff_vs_best_individual": -2.0425000000000004,
         "diff_vs_best_individual_ci95": [
           -3.8628541666666663,
@@ -5498,6 +5574,7 @@
         ]
       },
       {
+        "method": "random",
         "seed": 1,
         "loss_opt": 0.36933333333333335,
         "opt": {
@@ -6331,6 +6408,11 @@
           -0.05918750000000002,
           0.731791666666666
         ],
+        "diff_vs_ai_auto": -1.8591666666666669,
+        "diff_vs_ai_auto_ci95": [
+          -3.7250416666666673,
+          0.01462499999999729
+        ],
         "diff_vs_best_individual": -1.8591666666666669,
         "diff_vs_best_individual_ci95": [
           -3.7250416666666673,
@@ -6338,6 +6420,7 @@
         ]
       },
       {
+        "method": "random",
         "seed": 2,
         "loss_opt": 0.3715,
         "opt": {
@@ -7171,6 +7254,11 @@
           -0.28918750000000004,
           0.6492083333333332
         ],
+        "diff_vs_ai_auto": -2.0425000000000004,
+        "diff_vs_ai_auto_ci95": [
+          -3.8628541666666663,
+          -0.2236458333333365
+        ],
         "diff_vs_best_individual": -2.0425000000000004,
         "diff_vs_best_individual_ci95": [
           -3.8628541666666663,
@@ -7178,6 +7266,7 @@
         ]
       },
       {
+        "method": "random",
         "seed": 3,
         "loss_opt": 0.3715,
         "opt": {
@@ -8011,6 +8100,11 @@
           -0.28918750000000004,
           0.6492083333333332
         ],
+        "diff_vs_ai_auto": -2.0425000000000004,
+        "diff_vs_ai_auto_ci95": [
+          -3.8628541666666663,
+          -0.2236458333333365
+        ],
         "diff_vs_best_individual": -2.0425000000000004,
         "diff_vs_best_individual_ci95": [
           -3.8628541666666663,
@@ -8018,6 +8112,7 @@
         ]
       },
       {
+        "method": "random",
         "seed": 4,
         "loss_opt": 0.3690833333333333,
         "opt": {
@@ -8851,6 +8946,11 @@
           -0.7633541666666668,
           0.26335416666666656
         ],
+        "diff_vs_ai_auto": -2.475,
+        "diff_vs_ai_auto_ci95": [
+          -4.353374999999998,
+          -0.5614375000000018
+        ],
         "diff_vs_best_individual": -2.475,
         "diff_vs_best_individual_ci95": [
           -4.353374999999998,
@@ -8881,6 +8981,11 @@
       "selected_diff_vs_lp_ci95": [
         -0.6383958333333333,
         0.4158541666666665
+      ],
+      "selected_diff_vs_ai_auto": -2.3316666666666666,
+      "selected_diff_vs_ai_auto_ci95": [
+        -4.183416666666667,
+        -0.4435833333333366
       ],
       "selected_diff_vs_best_individual": -2.3316666666666666,
       "selected_diff_vs_best_individual_ci95": [
@@ -8976,7 +9081,7 @@
   "model_updates": {
     "logreg": {
       "ai_auroc": 0.8091461062411767,
-      "ai_ece": 0.030614125370771773,
+      "ai_ece": 0.03061412537179173,
       "protocol_costs": {
         "ai_auto": 41.25,
         "junior_alone": 52.45583333333334,
@@ -9024,7 +9129,7 @@
     ],
     "runs": 30,
     "severity_levels": 3,
-    "senior_share_mean": 0.29519166666666663,
+    "senior_share_mean": 0.2923416666666666,
     "per_run": [
       {
         "true": {
@@ -9032,18 +9137,18 @@
           "missed_death": 0.6249999999999999
         },
         "naive": {
-          "cost": 13.522877126389366,
-          "missed_death": 1.0478170326944258
+          "cost": 13.283064847015492,
+          "missed_death": 1.1710686517738074
         },
         "backdoor": {
-          "cost": 2.004840695706711,
-          "missed_death": 0.5149787744736352
+          "cost": 1.3306568336326874,
+          "missed_death": 0.5591847856067158
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.29075
+        "senior_share": 0.28975
       },
       {
         "true": {
@@ -9051,18 +9156,18 @@
           "missed_death": 0.5499999999999998
         },
         "naive": {
-          "cost": 15.692460658903611,
-          "missed_death": 1.4445782902158741
+          "cost": 16.013763991413686,
+          "missed_death": 1.5102157245571708
         },
         "backdoor": {
-          "cost": 6.6276943021218395,
-          "missed_death": 1.2535748887444575
+          "cost": 5.297713914278779,
+          "missed_death": 1.0087994809735754
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.298
+        "senior_share": 0.2965
       },
       {
         "true": {
@@ -9070,12 +9175,12 @@
           "missed_death": 0.5999999999999999
         },
         "naive": {
-          "cost": 26.60602802552904,
-          "missed_death": 3.5655118033798767
+          "cost": 26.62159674632052,
+          "missed_death": 3.617468593158494
         },
         "backdoor": {
-          "cost": 8.141748836138818,
-          "missed_death": 1.8051156464210163
+          "cost": 7.3992806489394605,
+          "missed_death": 1.7014253132715638
         },
         "adjustment_set": [
           "Sev",
@@ -9089,12 +9194,107 @@
           "missed_death": 0.4999999999999998
         },
         "naive": {
-          "cost": 12.14933798041407,
-          "missed_death": 0.9568067435587753
+          "cost": 11.703565456318849,
+          "missed_death": 0.9483609848197141
         },
         "backdoor": {
-          "cost": -0.8277384929726683,
-          "missed_death": 0.08920980107982382
+          "cost": -0.15779057413840003,
+          "missed_death": 0.5424034475918562
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.2935
+      },
+      {
+        "true": {
+          "cost": 1.7749999999999988,
+          "missed_death": 0.4750000000000004
+        },
+        "naive": {
+          "cost": 16.045942383731877,
+          "missed_death": 1.3247975899077384
+        },
+        "backdoor": {
+          "cost": -1.625123541800877,
+          "missed_death": -0.1603210209917355
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.29375
+      },
+      {
+        "true": {
+          "cost": 4.775000000000001,
+          "missed_death": 1.1749999999999996
+        },
+        "naive": {
+          "cost": 18.512197480631958,
+          "missed_death": 2.1883592349965557
+        },
+        "backdoor": {
+          "cost": 11.690237773247114,
+          "missed_death": 2.7334547600140167
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.2985
+      },
+      {
+        "true": {
+          "cost": 3.7750000000000004,
+          "missed_death": 0.6750000000000006
+        },
+        "naive": {
+          "cost": 17.747891596346438,
+          "missed_death": 1.8258793688686632
+        },
+        "backdoor": {
+          "cost": 1.6263693117922307,
+          "missed_death": 0.400233324017904
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.2945
+      },
+      {
+        "true": {
+          "cost": 4.275000000000001,
+          "missed_death": 1.0500000000000003
+        },
+        "naive": {
+          "cost": 20.725150446275016,
+          "missed_death": 2.9345563198222333
+        },
+        "backdoor": {
+          "cost": 8.05592113776823,
+          "missed_death": 2.277484234497388
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.2965
+      },
+      {
+        "true": {
+          "cost": 3.4750000000000005,
+          "missed_death": 0.8
+        },
+        "naive": {
+          "cost": 16.33856580913956,
+          "missed_death": 1.821489681622654
+        },
+        "backdoor": {
+          "cost": 1.713139401798358,
+          "missed_death": 0.8358845927679937
         },
         "adjustment_set": [
           "Sev",
@@ -9104,117 +9304,22 @@
       },
       {
         "true": {
-          "cost": 1.7749999999999988,
-          "missed_death": 0.4750000000000004
-        },
-        "naive": {
-          "cost": 19.00323776568711,
-          "missed_death": 1.984378102509381
-        },
-        "backdoor": {
-          "cost": 4.214730526667465,
-          "missed_death": 1.0058855627364929
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.29675
-      },
-      {
-        "true": {
-          "cost": 4.775000000000001,
-          "missed_death": 1.1749999999999996
-        },
-        "naive": {
-          "cost": 19.024556414585735,
-          "missed_death": 2.181936668740188
-        },
-        "backdoor": {
-          "cost": 10.126989538202835,
-          "missed_death": 2.316041712490327
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.3025
-      },
-      {
-        "true": {
-          "cost": 3.7750000000000004,
-          "missed_death": 0.6750000000000006
-        },
-        "naive": {
-          "cost": 19.274457595894955,
-          "missed_death": 2.2075045309108807
-        },
-        "backdoor": {
-          "cost": 3.4422624223940437,
-          "missed_death": 0.8118120806626133
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.29875
-      },
-      {
-        "true": {
-          "cost": 4.275000000000001,
-          "missed_death": 1.0500000000000003
-        },
-        "naive": {
-          "cost": 19.261904761904763,
-          "missed_death": 2.595238095238095
-        },
-        "backdoor": {
-          "cost": 6.411720547570265,
-          "missed_death": 1.911932095871731
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.3
-      },
-      {
-        "true": {
-          "cost": 3.4750000000000005,
-          "missed_death": 0.8
-        },
-        "naive": {
-          "cost": 14.107180238643501,
-          "missed_death": 1.3221089147402734
-        },
-        "backdoor": {
-          "cost": -1.0022998914344217,
-          "missed_death": 0.2736299222810726
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.2975
-      },
-      {
-        "true": {
           "cost": 4.299999999999998,
           "missed_death": 0.9750000000000002
         },
         "naive": {
-          "cost": 14.01647034792471,
-          "missed_death": 1.2666154319364675
+          "cost": 13.730802347490572,
+          "missed_death": 1.361143434940238
         },
         "backdoor": {
-          "cost": -0.18211207678940355,
-          "missed_death": 0.5163050075801722
+          "cost": 0.8535524750919732,
+          "missed_death": 0.8267017069945072
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.29975
+        "senior_share": 0.2955
       },
       {
         "true": {
@@ -9222,18 +9327,18 @@
           "missed_death": 0.5500000000000005
         },
         "naive": {
-          "cost": 15.397085135708622,
-          "missed_death": 1.3655247648504107
+          "cost": 16.691866625516404,
+          "missed_death": 1.6806281459882
         },
         "backdoor": {
-          "cost": 4.592058341296679,
-          "missed_death": 0.95828719624255
+          "cost": 6.889566451933304,
+          "missed_death": 1.3705787211220601
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.2865
+        "senior_share": 0.28725
       },
       {
         "true": {
@@ -9241,69 +9346,12 @@
           "missed_death": 0.5999999999999999
         },
         "naive": {
-          "cost": 19.743615192100833,
-          "missed_death": 2.38648112730393
+          "cost": 18.01863245878802,
+          "missed_death": 2.0746265768903336
         },
         "backdoor": {
-          "cost": 2.3444885872840993,
-          "missed_death": 0.9014454922928585
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.29925
-      },
-      {
-        "true": {
-          "cost": 1.6249999999999987,
-          "missed_death": 0.5250000000000005
-        },
-        "naive": {
-          "cost": 21.083776080000217,
-          "missed_death": 2.329327438167779
-        },
-        "backdoor": {
-          "cost": 12.057435152308354,
-          "missed_death": 2.47346938272151
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.30075
-      },
-      {
-        "true": {
-          "cost": 3.8250000000000006,
-          "missed_death": 0.9749999999999994
-        },
-        "naive": {
-          "cost": 19.1900390597459,
-          "missed_death": 1.9917650210809823
-        },
-        "backdoor": {
-          "cost": 4.857585099457795,
-          "missed_death": 0.8688398165946659
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.307
-      },
-      {
-        "true": {
-          "cost": 6.624999999999997,
-          "missed_death": 1.4
-        },
-        "naive": {
-          "cost": 13.615432242086529,
-          "missed_death": 0.9016330005417534
-        },
-        "backdoor": {
-          "cost": 2.7208973707111506,
-          "missed_death": 0.4427648428434558
+          "cost": 3.6033903752328564,
+          "missed_death": 1.1169001033484443
         },
         "adjustment_set": [
           "Sev",
@@ -9313,22 +9361,79 @@
       },
       {
         "true": {
-          "cost": 2.949999999999997,
-          "missed_death": 0.75
+          "cost": 1.6249999999999987,
+          "missed_death": 0.5250000000000005
         },
         "naive": {
-          "cost": 16.8822622223126,
-          "missed_death": 1.8131776318174302
+          "cost": 20.5417249128097,
+          "missed_death": 2.2472674010849287
         },
         "backdoor": {
-          "cost": 3.726341317708892,
-          "missed_death": 1.3138141983204816
+          "cost": 10.992214294550983,
+          "missed_death": 2.304808104119043
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.30525
+        "senior_share": 0.299
+      },
+      {
+        "true": {
+          "cost": 3.8250000000000006,
+          "missed_death": 0.9749999999999994
+        },
+        "naive": {
+          "cost": 16.805731763950003,
+          "missed_death": 1.5120977003063432
+        },
+        "backdoor": {
+          "cost": 3.0366228556154393,
+          "missed_death": 0.4014543004616622
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.30225
+      },
+      {
+        "true": {
+          "cost": 6.624999999999997,
+          "missed_death": 1.4
+        },
+        "naive": {
+          "cost": 12.581928838951312,
+          "missed_death": 0.7295568039950067
+        },
+        "backdoor": {
+          "cost": 1.9023603743325013,
+          "missed_death": 0.21985342833120425
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.288
+      },
+      {
+        "true": {
+          "cost": 2.949999999999997,
+          "missed_death": 0.75
+        },
+        "naive": {
+          "cost": 17.83055611942672,
+          "missed_death": 2.0140291147460028
+        },
+        "backdoor": {
+          "cost": 3.892254051461874,
+          "missed_death": 1.252326923370272
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.3015
       },
       {
         "true": {
@@ -9336,18 +9441,18 @@
           "missed_death": 0.8499999999999994
         },
         "naive": {
-          "cost": 12.586953478380508,
-          "missed_death": 1.0130291429923104
+          "cost": 13.278530932322058,
+          "missed_death": 1.2183694014881423
         },
         "backdoor": {
-          "cost": -0.12237818897867236,
-          "missed_death": 0.5020449835688396
+          "cost": 1.6394272276954003,
+          "missed_death": 0.7307520834269631
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.293
+        "senior_share": 0.29125
       },
       {
         "true": {
@@ -9355,18 +9460,18 @@
           "missed_death": 0.8250000000000001
         },
         "naive": {
-          "cost": 17.682555208382304,
-          "missed_death": 1.6999842169779198
+          "cost": 18.677612688134737,
+          "missed_death": 1.9292844616600184
         },
         "backdoor": {
-          "cost": 3.5394313231472907,
-          "missed_death": 1.1895943402949527
+          "cost": 6.192741770248922,
+          "missed_death": 1.4887571937864212
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.29675
+        "senior_share": 0.294
       },
       {
         "true": {
@@ -9374,69 +9479,12 @@
           "missed_death": 0.8500000000000001
         },
         "naive": {
-          "cost": 14.481982823314105,
-          "missed_death": 1.5196255738798237
+          "cost": 13.07922627543247,
+          "missed_death": 1.2636101929646952
         },
         "backdoor": {
-          "cost": 0.38400090655031915,
-          "missed_death": 0.9929722100247347
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.28975
-      },
-      {
-        "true": {
-          "cost": 3.875000000000001,
-          "missed_death": 1.0000000000000002
-        },
-        "naive": {
-          "cost": 13.732644632159552,
-          "missed_death": 1.2789129582280123
-        },
-        "backdoor": {
-          "cost": -4.662830383693778,
-          "missed_death": -0.41700874887271244
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.29975
-      },
-      {
-        "true": {
-          "cost": 4.875000000000002,
-          "missed_death": 0.9000000000000001
-        },
-        "naive": {
-          "cost": 19.7266769351575,
-          "missed_death": 1.8419860469330431
-        },
-        "backdoor": {
-          "cost": 0.8196975976528464,
-          "missed_death": -0.0548701012927387
-        },
-        "adjustment_set": [
-          "Sev",
-          "Unc"
-        ],
-        "senior_share": 0.2925
-      },
-      {
-        "true": {
-          "cost": 2.2749999999999995,
-          "missed_death": 0.6749999999999999
-        },
-        "naive": {
-          "cost": 17.91597147187557,
-          "missed_death": 1.6310290151315916
-        },
-        "backdoor": {
-          "cost": 12.36653430238635,
-          "missed_death": 2.448638955007602
+          "cost": -3.929640318625016,
+          "missed_death": 0.1358501077451349
         },
         "adjustment_set": [
           "Sev",
@@ -9446,22 +9494,79 @@
       },
       {
         "true": {
-          "cost": 3.125,
-          "missed_death": 0.9500000000000002
+          "cost": 3.875000000000001,
+          "missed_death": 1.0000000000000002
         },
         "naive": {
-          "cost": 16.4368898302431,
-          "missed_death": 1.6231773380219991
+          "cost": 12.666582619627286,
+          "missed_death": 1.1089451819043554
         },
         "backdoor": {
-          "cost": 3.033782521103545,
-          "missed_death": 0.6003634777381396
+          "cost": -5.163521510228131,
+          "missed_death": -0.5169290460438146
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.28925
+        "senior_share": 0.3005
+      },
+      {
+        "true": {
+          "cost": 4.875000000000002,
+          "missed_death": 0.9000000000000001
+        },
+        "naive": {
+          "cost": 19.145293544238466,
+          "missed_death": 1.8921573178312772
+        },
+        "backdoor": {
+          "cost": 1.3354884371823028,
+          "missed_death": 0.11489251824591332
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.29025
+      },
+      {
+        "true": {
+          "cost": 2.2749999999999995,
+          "missed_death": 0.6749999999999999
+        },
+        "naive": {
+          "cost": 15.78538367239209,
+          "missed_death": 1.2522535198746583
+        },
+        "backdoor": {
+          "cost": 7.660706365756154,
+          "missed_death": 1.4260203951617243
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.28525
+      },
+      {
+        "true": {
+          "cost": 3.125,
+          "missed_death": 0.9500000000000002
+        },
+        "naive": {
+          "cost": 14.946632315053366,
+          "missed_death": 1.3795853269537486
+        },
+        "backdoor": {
+          "cost": 1.1221906398507397,
+          "missed_death": 0.3869007758971664
+        },
+        "adjustment_set": [
+          "Sev",
+          "Unc"
+        ],
+        "senior_share": 0.285
       },
       {
         "true": {
@@ -9469,18 +9574,18 @@
           "missed_death": 1.1749999999999996
         },
         "naive": {
-          "cost": 18.706920768575085,
-          "missed_death": 1.9404266298221313
+          "cost": 15.993747865413804,
+          "missed_death": 1.5795633958425253
         },
         "backdoor": {
-          "cost": 2.613411790676734,
-          "missed_death": 0.7554291199389822
+          "cost": 0.16114484962798103,
+          "missed_death": 0.504030147560628
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.2935
+        "senior_share": 0.2895
       },
       {
         "true": {
@@ -9488,18 +9593,18 @@
           "missed_death": 0.8750000000000001
         },
         "naive": {
-          "cost": 22.08197447856599,
-          "missed_death": 2.636374809284449
+          "cost": 20.74492610914433,
+          "missed_death": 2.411553700794786
         },
         "backdoor": {
-          "cost": 6.773305743851177,
-          "missed_death": 1.466876614640463
+          "cost": 6.5224922342591025,
+          "missed_death": 1.2865587375161573
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.2795
+        "senior_share": 0.27625
       },
       {
         "true": {
@@ -9507,18 +9612,18 @@
           "missed_death": 0.5999999999999999
         },
         "naive": {
-          "cost": 13.2433330313189,
-          "missed_death": 0.8106067470025069
+          "cost": 12.962603205439539,
+          "missed_death": 0.7892180670228267
         },
         "backdoor": {
-          "cost": -2.5992962598660627,
-          "missed_death": -0.3010950382794114
+          "cost": -3.730473127943812,
+          "missed_death": -0.7184658231180443
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.2925
+        "senior_share": 0.29
       },
       {
         "true": {
@@ -9526,18 +9631,18 @@
           "missed_death": 0.6250000000000006
         },
         "naive": {
-          "cost": 15.243848775721775,
-          "missed_death": 1.3939543105184256
+          "cost": 13.56657766426747,
+          "missed_death": 1.2184621933286899
         },
         "backdoor": {
-          "cost": -0.9879123268112799,
-          "missed_death": -0.017832194981413918
+          "cost": -2.722090775241509,
+          "missed_death": -0.2232255302592516
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.29875
+        "senior_share": 0.292
       },
       {
         "true": {
@@ -9545,18 +9650,18 @@
           "missed_death": 1.0749999999999995
         },
         "naive": {
-          "cost": 20.835126731458075,
-          "missed_death": 2.131762617987512
+          "cost": 21.49811943221021,
+          "missed_death": 2.44802991675867
         },
         "backdoor": {
-          "cost": 3.0337712801711323,
-          "missed_death": 1.0621537812285253
+          "cost": 4.962606358763716,
+          "missed_death": 1.421017229733327
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.2935
+        "senior_share": 0.29025
       },
       {
         "true": {
@@ -9564,18 +9669,18 @@
           "missed_death": 0.8999999999999995
         },
         "naive": {
-          "cost": 16.28094219894658,
-          "missed_death": 1.4814201647868528
+          "cost": 15.15859172316799,
+          "missed_death": 1.472019159709214
         },
         "backdoor": {
-          "cost": 0.3957965110106709,
-          "missed_death": 0.41228724482211543
+          "cost": -0.19403936970250335,
+          "missed_death": 0.35888897609628945
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.29975
+        "senior_share": 0.2985
       },
       {
         "true": {
@@ -9583,38 +9688,38 @@
           "missed_death": 0.8750000000000001
         },
         "naive": {
-          "cost": 15.03893010405667,
-          "missed_death": 1.5794396477611023
+          "cost": 13.710088023982314,
+          "missed_death": 1.4142880409640421
         },
         "backdoor": {
-          "cost": 0.9016658804511191,
-          "missed_death": 0.6205909110307078
+          "cost": 0.16372361499355503,
+          "missed_death": 0.5960397465621513
         },
         "adjustment_set": [
           "Sev",
           "Unc"
         ],
-        "senior_share": 0.29575
+        "senior_share": 0.29225
       }
     ],
     "cost": {
       "true_mean": 3.3308333333333335,
-      "naive_mean": 17.085515710532913,
-      "backdoor_mean": 3.158187432467462,
-      "naive_abs_error_mean": 13.754682377199574,
-      "backdoor_abs_error_mean": 3.4820213871988437,
+      "naive_mean": 16.480229929831744,
+      "backdoor_mean": 2.6840374060124477,
+      "naive_abs_error_mean": 13.149396596498411,
+      "backdoor_abs_error_mean": 3.8257376190835855,
       "naive_wrong_sign_runs": 0,
       "backdoor_wrong_sign_runs": 7
     },
     "missed_death": {
       "true_mean": 0.8133333333333332,
-      "naive_mean": 1.7314044605671404,
-      "backdoor_mean": 0.8905750658741882,
-      "naive_abs_error_mean": 0.9512955938643566,
-      "backdoor_abs_error_mean": 0.6343889592239311,
+      "naive_mean": 1.6779628401525246,
+      "backdoor_mean": 0.8127419905935743,
+      "naive_abs_error_mean": 0.9093257198861907,
+      "backdoor_abs_error_mean": 0.681685958558015,
       "naive_wrong_sign_runs": 0,
       "backdoor_wrong_sign_runs": 4
     }
   },
-  "runtime_s": 241.0773229598999
+  "runtime_s": 287.88041973114014
 }
